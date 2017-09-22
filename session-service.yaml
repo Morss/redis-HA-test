@@ -1,0 +1,53 @@
+kind: List
+apiVersion: v1
+items:
+- kind: Deployment
+  apiVersion: extensions/v1beta1
+  metadata:
+    name: passlayer-session
+    namespace: passlayer-secure
+  spec:
+    replicas: 2
+    revisionHistoryLimit: 2
+    template:
+      metadata:
+        name: passlayer-session
+        labels:
+          app: passlayer-session
+      spec:
+        containers:
+        - name: passlayer-session
+          image: martint/passlayer-session:latest
+          ports:
+          - containerPort: 80
+          env:
+          - name: REDIS_URL
+            value: passlayer-keyvaluestore:6379
+          - name: SESSION_EXPIRATION
+            value: 30m
+          - name: AUTHENTICATION_SERVICE_URL
+            value: http://authentication
+          - name: TOKEN_EXPIRATION_REFRESH_MARGIN
+            value: 2m
+        imagePullSecrets:
+        - name: topdeskdeploy
+          name: topdeskdockerregistry
+    strategy:
+      type: RollingUpdate
+      rollingUpdate:
+        maxUnavailable: 50%
+        maxSurge: 2
+- kind: Service
+  apiVersion: v1
+  metadata:
+    namespace: passlayer-secure
+    labels:
+      app: passlayer-session
+    name: authentication-session
+  spec:
+    type: ClusterIP
+    ports:
+    - port: 80
+      targetPort: 80
+    selector:
+      app: passlayer-session
